@@ -1,0 +1,39 @@
+# Local .terraform directories
+.terraform/
+**/.terraform/
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude override files as they are usually used to override resources locally and so
+# are not checked in to source control.
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Include tfvars files that are meant to be shared
+# *.tfvars
+# *.tfvars.json
+
+# CLI configuration files
+.terraformrc
+terraform.rc
+
+# Sensitive local files
+.terraform.lock.hcl
+
+# IDE/editor files
+.vscode/
+.idea/
+.DS_Store
+
+# OS generated files
+Thumbs.db
