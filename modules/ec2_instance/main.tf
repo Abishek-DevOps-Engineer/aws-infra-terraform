@@ -14,24 +14,18 @@ resource "aws_instance" "this" {
     key_name = var.key_name
     vpc_security_group_ids = var.security_groups
     iam_instance_profile = var.iam_instance_profile
+    subnet_id = var.subnet_id
+    user_data_base64 = var.user_data_base64
 
      tags = {
     Name = var.name
   }
 
-provisioner "file" {
-  source      = var.source_path
-  destination = var.destination_path
-
-  connection {
-    type     = "ssh"
-    user     = var.username
-    host     = self.public_ip
-    private_key = file(var.private_key_path)
-  }
-}
-
   
 
+}
+
+output "instance_id" {
+  value = aws_instance.this.id   # to use the resource id in the root main.tf
 }
 

@@ -28,33 +28,22 @@ variable "security_groups" {
   
 }
 
-variable "source_path" {
-    type = string
-    description = "Source file path"
-  
-}
-
-variable "destination_path" {
-    type = string
-    description = "destination file path"
-  
-}
-
-variable "username" {
-    type = string
-    description = "ssh username"
-  
-}
-
-variable "private_key_path" {
-    type = string
-    description = "private pem file path "
-  
-}
-
 variable "iam_instance_profile" {
     type = string
     description = "IAM instance profile"
     default = null
+  
+}
+
+variable "subnet_id" {
+
+    type = string
+    description = "subnet id"
+  
+}
+
+variable "user_data_base64" {
+    type = string
+    description = "user data script file "
   
 }
