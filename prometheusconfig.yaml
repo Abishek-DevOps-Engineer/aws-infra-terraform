@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # Prometheus monitoring itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+          - 'localhost:9090'
+
+  # Production EC2 instances
+  - job_name: 'production-servers'
+    static_configs:
+
+      # Production EC2 - 1
+      - targets:
+          - '<PROD-1-PRIVATE-IP>:9100'
+        labels:
+          server: 'prod-1'
+          availability_zone: '<PROD-1-AZ>'
+
+      # Production EC2 - 2
+      - targets:
+          - '<PROD-2-PRIVATE-IP>:9100'
+        labels:
+          server: 'prod-2'
+          availability_zone: '<PROD-2-AZ>'
+
+      # Production EC2 - 3
+      - targets:
+          - '<PROD-3-PRIVATE-IP>:9100'
+        labels:
+          server: 'prod-3'
+          availability_zone: '<PROD-3-AZ>'
