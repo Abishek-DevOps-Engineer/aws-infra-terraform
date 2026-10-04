@@ -11,6 +11,8 @@ resource "aws_vpc" "myvpc" {
   cidr_block = "10.0.0.0/16"
 }
 
+#public subnets
+
 #Subnet1
 resource "aws_subnet" "subnet1" {
   vpc_id                  = aws_vpc.myvpc.id
@@ -34,14 +36,7 @@ resource "aws_subnet" "subnet2" {
   }
 }
 
-#internet gateway
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.myvpc.id
 
-  tags = {
-    Name = "main"
-  }
-}
 
 #route table
 resource "aws_route_table" "myroutetable" {
@@ -67,6 +62,85 @@ resource "aws_route_table_association" "subnet1association" {
 resource "aws_route_table_association" "subnet2association" {
   subnet_id      = aws_subnet.subnet2.id
   route_table_id = aws_route_table.myroutetable.id
+}
+
+#internet gateway
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.myvpc.id
+
+  tags = {
+    Name = "main"
+  }
+}
+
+
+#private subnets
+#Subnet3
+resource "aws_subnet" "subnet3" {
+  vpc_id                  = aws_vpc.myvpc.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "ap-south-1a"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "Subnet3"
+  }
+}
+
+#Subnet4
+resource "aws_subnet" "subnet4" {
+  vpc_id                  = aws_vpc.myvpc.id
+  cidr_block              = "10.0.4.0/24"
+  availability_zone       = "ap-south-1b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "Subnet4"
+  }
+}
+
+#elastic ip
+resource "aws_eip" "eip" {
+  domain = "vpc"
+}
+
+#nat gateway
+resource "aws_nat_gateway" "natgw" {
+  allocation_id = aws_eip.eip.id
+  subnet_id     = aws_subnet.subnet1.id
+
+  tags = {
+    Name = "gw NAT"
+  }
+
+  # To ensure proper ordering, it is recommended to add an explicit dependency
+  # on the Internet Gateway for the VPC.
+  depends_on = [aws_internet_gateway.igw]
+}
+
+#route table
+resource "aws_route_table" "myroutetablenatgw" {
+  vpc_id = aws_vpc.myvpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_nat_gateway.natgw.id
+  }
+
+  tags = {
+    Name = "mynatgw"
+  }
+}
+
+#Subnet3 association
+resource "aws_route_table_association" "subnet3association" {
+  subnet_id      = aws_subnet.subnet3.id
+  route_table_id = aws_route_table.myroutetablenatgw.id
+}
+
+#Subnet4 association
+resource "aws_route_table_association" "subnet4association" {
+  subnet_id      = aws_subnet.subnet4.id
+  route_table_id = aws_route_table.myroutetablenatgw.id
 }
 
 
@@ -250,11 +324,11 @@ resource "aws_vpc_security_group_ingress_rule" "allow_prometheusui_access" {
 
 #Allow Grafana UI access
 resource "aws_vpc_security_group_ingress_rule" "allow_grafanaui_access" {
-  security_group_id = aws_security_group.monitoring_instance_sg.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 3000
-  ip_protocol       = "tcp"
-  to_port           = 3000
+  security_group_id            = aws_security_group.monitoring_instance_sg.id
+  referenced_security_group_id = aws_security_group.websg.id
+  from_port                    = 3000
+  ip_protocol                  = "tcp"
+  to_port                      = 3000
 }
 
 #Allow outbound
@@ -281,9 +355,9 @@ module "ec2_instance_jenkinsslaveprodapsouth1a" {
   instance_type    = "m7i-flex.large"
   ami              = "ami-01a00762f46d584a1"
   key_name         = "oldawskey"
-  name             = "Jenkins Node Prod"
+  name             = "Jenkins Node Prod ap-south-1a"
   security_groups  = [aws_security_group.Jenkins_slave_prodinstance.id]
-  subnet_id        = aws_subnet.subnet1.id
+  subnet_id        = aws_subnet.subnet3.id
   user_data_base64 = base64encode(file("jenkinssetup.sh"))
 
 }
@@ -295,9 +369,9 @@ module "ec2_instance_jenkinsslaveprodapsouth1b" {
   instance_type    = "m7i-flex.large"
   ami              = "ami-01a00762f46d584a1"
   key_name         = "oldawskey"
-  name             = "Jenkins Node Prod"
+  name             = "Jenkins Node Prod ap-south-1b"
   security_groups  = [aws_security_group.Jenkins_slave_prodinstance.id]
-  subnet_id        = aws_subnet.subnet2.id
+  subnet_id        = aws_subnet.subnet4.id
   user_data_base64 = base64encode(file("jenkinssetup.sh"))
 
 }
@@ -367,7 +441,7 @@ resource "aws_lb" "myalb" {
 }
 
 
-#Security group
+#Security group alb
 
 resource "aws_security_group" "websg" {
 
@@ -429,6 +503,46 @@ resource "aws_lb_target_group_attachment" "tgattachment2" {
   port             = 5000
 }
 
+#grafana target group since moving instance to private subnets. access grafana via exiting alb
+
+#alb target group
+resource "aws_lb_target_group" "myalbtggrafana" {
+  name     = "myalbtggrafana"
+  port     = 3000
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.myvpc.id
+
+  health_check {
+    path = "/api/health" # grafana health check endpoint
+    port = "traffic-port"
+  }
+}
+
+#alb listener rule : this allows the existing alb listener to send traffic to another target group based on path /garfana
+resource "aws_lb_listener_rule" "grafanalistenerrule" {
+  listener_arn = aws_lb_listener.front_end.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.myalbtggrafana.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/grafana", "/grafana/*"]
+    }
+  }
+
+}
+
+#alb target group attachment
+resource "aws_lb_target_group_attachment" "tgattachmentgrafana" {
+  target_group_arn = aws_lb_target_group.myalbtggrafana.arn
+  target_id        = module.ec2_instance_grafanaandprometheus.instance_id
+  port             = 3000
+}
+
 
 #grafana monitoring instance
 module "ec2_instance_grafanaandprometheus" {
@@ -439,7 +553,7 @@ module "ec2_instance_grafanaandprometheus" {
   key_name         = "oldawskey"
   name             = "Grafana monitoring"
   security_groups  = [aws_security_group.monitoring_instance_sg.id]
-  subnet_id        = aws_subnet.subnet1.id
+  subnet_id        = aws_subnet.subnet3.id
   user_data_base64 = base64encode(file("prometheusgrafana.sh"))
 
 }
