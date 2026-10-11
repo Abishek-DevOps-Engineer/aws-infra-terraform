@@ -80,7 +80,6 @@ resource "aws_subnet" "subnet3" {
   vpc_id                  = aws_vpc.myvpc.id
   cidr_block              = "10.0.3.0/24"
   availability_zone       = "ap-south-1a"
-  map_public_ip_on_launch = true
   tags = {
     Name = "Subnet3"
   }
@@ -91,8 +90,6 @@ resource "aws_subnet" "subnet4" {
   vpc_id                  = aws_vpc.myvpc.id
   cidr_block              = "10.0.4.0/24"
   availability_zone       = "ap-south-1b"
-  map_public_ip_on_launch = true
-
   tags = {
     Name = "Subnet4"
   }
@@ -387,14 +384,14 @@ resource "aws_security_group" "Jenkins_slave_prodinstance" {
     Name = "jenkins_slave_prod"
   }
 }
-#allow ssh to jenkins slave machine
-resource "aws_vpc_security_group_ingress_rule" "allow_ssh_jenkinsslave_prodinstance" {
-  security_group_id = aws_security_group.Jenkins_slave_prodinstance.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 22
-  ip_protocol       = "tcp"
-  to_port           = 22
-}
+# #allow ssh to jenkins slave machine
+# resource "aws_vpc_security_group_ingress_rule" "allow_ssh_jenkinsslave_prodinstance" {
+#   security_group_id = aws_security_group.Jenkins_slave_prodinstance.id
+#   cidr_ipv4         = "0.0.0.0/0"
+#   from_port         = 22
+#   ip_protocol       = "tcp"
+#   to_port           = 22
+# }
 #allow ssh to jenkins slave from master
 resource "aws_vpc_security_group_ingress_rule" "allow_ssh_jenkinsmaster_to_prodinstance" {
   security_group_id            = aws_security_group.Jenkins_slave_prodinstance.id
@@ -404,7 +401,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_ssh_jenkinsmaster_to_prodi
   referenced_security_group_id = aws_security_group.Jenkins_master.id
 }
 
-#allow ssh to jenkins slave machine
+#allow port 5000 from websg of alb
 resource "aws_vpc_security_group_ingress_rule" "allow_flaskappui_access" {
   security_group_id            = aws_security_group.Jenkins_slave_prodinstance.id
   referenced_security_group_id = aws_security_group.websg.id
@@ -513,7 +510,7 @@ resource "aws_lb_target_group" "myalbtggrafana" {
   vpc_id   = aws_vpc.myvpc.id
 
   health_check {
-    path = "/api/health" # grafana health check endpoint
+    path = "/grafana/api/health" # grafana health check endpoint
     port = "traffic-port"
   }
 }
